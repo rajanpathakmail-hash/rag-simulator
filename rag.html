@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Simulator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    .app {
+      max-width: 1200px;
+      margin: auto;
+      padding: 30px;
+    }
+    .hero {
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      padding: 28px;
+      border-radius: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.3);
+    }
+    .hero h1 { margin: 0 0 8px; font-size: 34px; }
+    .hero p { margin: 0; color: #dbeafe; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 22px;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 22px;
+      padding: 22px;
+      box-shadow: 0 12px 35px rgba(0,0,0,.25);
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 8px;
+      font-weight: 700;
+      color: #bfdbfe;
+    }
+
+    textarea, input {
+      width: 100%;
+      border: 1px solid #334155;
+      background: #020617;
+      color: white;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    textarea { min-height: 160px; resize: vertical; }
+
+    button {
+      margin-top: 16px;
+      width: 100%;
+      border: none;
+      padding: 14px 18px;
+      border-radius: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: white;
+      font-size: 15px;
+    }
+
+    button.secondary {
+      background: #334155;
+    }
+
+    .steps {
+      display: grid;
+      gap: 14px;
+    }
+
+    .step {
+      border: 1px solid #334155;
+      background: #020617;
+      border-radius: 18px;
+      padding: 16px;
+      opacity: .45;
+      transform: scale(.98);
+      transition: .3s;
+    }
+
+    .step.active {
+      opacity: 1;
+      border-color: #60a5fa;
+      transform: scale(1);
+      box-shadow: 0 0 0 2px rgba(96,165,250,.15);
+    }
+
+    .step.done {
+      opacity: 1;
+      border-color: #22c55e;
+    }
+
+    .step h3 {
+      margin: 0 0 8px;
+      color: #93c5fd;
+    }
+
+    .step p {
+      margin: 0 0 10px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    .output {
+      background: #020617;
+      border: 1px dashed #475569;
+      border-radius: 14px;
+      padding: 12px;
+      color: #e2e8f0;
+      min-height: 42px;
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 5px 10px;
+      background: #1e293b;
+      color: #93c5fd;
+      border-radius: 999px;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .answer {
+      margin-top: 22px;
+      background: linear-gradient(135deg, #064e3b, #065f46);
+      border: 1px solid #10b981;
+      border-radius: 20px;
+      padding: 18px;
+      display: none;
+    }
+
+    .answer h2 { margin-top: 0; }
+
+    .highlight {
+      color: #86efac;
+      font-weight: 800;
+    }
+
+    @media(max-width: 850px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="hero">
+      <h1>RAG Simulator</h1>
+      <p>Understand how Retrieval-Augmented Generation works step by step.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Input</h2>
+
+        <label>Knowledge Base</label>
+        <textarea id="knowledge">BookingQube is a ticketing platform for events and movies.
+It supports organizers, customers, ticket validation, QR scanning, checkout, and event management.
+RAG means Retrieval-Augmented Generation.
+In RAG, the system first searches relevant documents, then gives them to an AI model as context.
+This helps the AI answer with better accuracy instead of guessing.</textarea>
+
+        <label>User Question</label>
+        <input id="question" value="What is RAG and how does it help BookingQube?" />
+
+        <button onclick="runRAG()">Run RAG Simulation</button>
+        <button class="secondary" onclick="resetSim()">Reset</button>
+      </div>
+
+      <div class="card">
+        <h2>RAG Pipeline</h2>
+
+        <div class="steps">
+          <div class="step" id="step1">
+            <span class="badge">Step 1</span>
+            <h3>Document Ingestion</h3>
+            <p>The system receives knowledge documents.</p>
+            <div class="output" id="out1"></div>
+          </div>
+
+          <div class="step" id="step2">
+            <span class="badge">Step 2</span>
+            <h3>Chunking</h3>
+            <p>Large text is split into smaller chunks.</p>
+            <div class="output" id="out2"></div>
+          </div>
+
+          <div class="step" id="step3">
+            <span class="badge">Step 3</span>
+            <h3>Embedding</h3>
+            <p>Each chunk is converted into a searchable meaning vector.</p>
+            <div class="output" id="out3"></div>
+          </div>
+
+          <div class="step" id="step4">
+            <span class="badge">Step 4</span>
+            <h3>Retrieval</h3>
+            <p>The system finds the chunks most relevant to the question.</p>
+            <div class="output" id="out4"></div>
+          </div>
+
+          <div class="step" id="step5">
+            <span class="badge">Step 5</span>
+            <h3>Prompt Building</h3>
+            <p>The question and retrieved context are combined.</p>
+            <div class="output" id="out5"></div>
+          </div>
+
+          <div class="step" id="step6">
+            <span class="badge">Step 6</span>
+            <h3>Answer Generation</h3>
+            <p>The AI generates an answer using the retrieved context.</p>
+            <div class="output" id="out6"></div>
+          </div>
+        </div>
+
+        <div class="answer" id="finalAnswer">
+          <h2>Final Answer</h2>
+          <p id="answerText"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    function resetSim() {
+      for (let i = 1; i <= 6; i++) {
+        document.getElementById("step" + i).className = "step";
+        document.getElementById("out" + i).textContent = "";
+      }
+      document.getElementById("finalAnswer").style.display = "none";
+      document.getElementById("answerText").textContent = "";
+    }
+
+    function activate(step) {
+      document.getElementById("step" + step).classList.add("active");
+    }
+
+    function done(step) {
+      document.getElementById("step" + step).classList.remove("active");
+      document.getElementById("step" + step).classList.add("done");
+    }
+
+    function chunkText(text) {
+      return text
+        .split(/\n|\. /)
+        .map(x => x.trim())
+        .filter(x => x.length > 10);
+    }
+
+    function fakeEmbedding(text) {
+      let score = 0;
+      for (let char of text) score += char.charCodeAt(0);
+      return [
+        (score % 97) / 100,
+        (score % 53) / 100,
+        (score % 31) / 100
+      ];
+    }
+
+    function similarity(question, chunk) {
+      const qWords = question.toLowerCase().split(/\W+/);
+      const cWords = chunk.toLowerCase().split(/\W+/);
+      let matches = 0;
+
+      qWords.forEach(word => {
+        if (word.length > 2 && cWords.includes(word)) matches++;
+      });
+
+      return matches;
+    }
+
+    async function runRAG() {
+      resetSim();
+
+      const knowledge = document.getElementById("knowledge").value.trim();
+      const question = document.getElementById("question").value.trim();
+
+      activate(1);
+      document.getElementById("out1").textContent = knowledge;
+      await sleep(700);
+      done(1);
+
+      activate(2);
+      const chunks = chunkText(knowledge);
+      document.getElementById("out2").textContent =
+        chunks.map((c, i) => `Chunk ${i + 1}: ${c}`).join("\n\n");
+      await sleep(700);
+      done(2);
+
+      activate(3);
+      const embeddings = chunks.map(c => fakeEmbedding(c));
+      document.getElementById("out3").textContent =
+        embeddings.map((e, i) => `Chunk ${i + 1} vector: [${e.join(", ")}]`).join("\n");
+      await sleep(700);
+      done(3);
+
+      activate(4);
+      const ranked = chunks
+        .map(chunk => ({ chunk, score: similarity(question, chunk) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+
+      document.getElementById("out4").textContent =
+        ranked.map((r, i) => `Top ${i + 1}: ${r.chunk}\nRelevance score: ${r.score}`).join("\n\n");
+      await sleep(700);
+      done(4);
+
+      activate(5);
+      const context = ranked.map(r => r.chunk).join("\n");
+      const prompt = `Use this context:\n${context}\n\nAnswer this question:\n${question}`;
+      document.getElementById("out5").textContent = prompt;
+      await sleep(700);
+      done(5);
+
+      activate(6);
+      const answer =
+        `RAG means Retrieval-Augmented Generation. In simple terms, the AI does not answer only from memory. ` +
+        `It first searches the knowledge base, retrieves the most relevant information, and then generates an answer using that context.\n\n` +
+        `For BookingQube, RAG can help by answering questions about event setup, ticket validation, QR scanning, checkout flow, organizer management, and support issues using your own documents instead of guessing.`;
+
+      document.getElementById("out6").textContent = "Answer generated using retrieved context.";
+      await sleep(700);
+      done(6);
+
+      document.getElementById("answerText").innerHTML =
+        answer.replace("RAG", "<span class='highlight'>RAG</span>");
+      document.getElementById("finalAnswer").style.display = "block";
+    }
+  </script>
+</body>
+</html>
