@@ -1,350 +1,1091 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RAG Simulator</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Inter, Arial, sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-    }
-    .app {
-      max-width: 1200px;
-      margin: auto;
-      padding: 30px;
-    }
-    .hero {
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      padding: 28px;
-      border-radius: 24px;
-      margin-bottom: 24px;
-      box-shadow: 0 20px 50px rgba(0,0,0,.3);
-    }
-    .hero h1 { margin: 0 0 8px; font-size: 34px; }
-    .hero p { margin: 0; color: #dbeafe; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --bg2: #131620;
+    --bg3: #1a1e2a;
+    --surface: #1e2235;
+    --surface2: #252b40;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8eaf0;
+    --text2: #9ba3bc;
+    --text3: #5e6680;
+    --accent: #6c8fff;
+    --accent2: #4d6bde;
+    --teal: #3ecfaf;
+    --amber: #f0a644;
+    --coral: #f06b6b;
+    --purple: #a78bfa;
+    --green: #5ecb7a;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
 
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1.4fr;
-      gap: 22px;
-    }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .card {
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 22px;
-      padding: 22px;
-      box-shadow: 0 12px 35px rgba(0,0,0,.25);
-    }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
 
-    label {
-      display: block;
-      margin: 14px 0 8px;
-      font-weight: 700;
-      color: #bfdbfe;
-    }
+  /* HEADER */
+  .header {
+    padding: 32px 40px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .logo-mark {
+    width: 44px; height: 44px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: #fff; flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .header-text h1 {
+    font-size: 26px; font-weight: 800; letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .header-text p {
+    font-size: 14px; color: var(--text2); margin-top: 4px;
+    font-weight: 400;
+  }
 
-    textarea, input {
-      width: 100%;
-      border: 1px solid #334155;
-      background: #020617;
-      color: white;
-      border-radius: 14px;
-      padding: 14px;
-      font-size: 15px;
-      outline: none;
-    }
+  /* PIPELINE STEPS NAV */
+  .pipeline-nav {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 28px 40px 0;
+    overflow-x: auto;
+  }
+  .step-node {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    position: relative;
+    border: 1px solid transparent;
+  }
+  .step-node:hover { background: var(--surface); }
+  .step-node.active {
+    background: var(--surface2);
+    border-color: var(--border2);
+  }
+  .step-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border2);
+    font-size: 11px; font-weight: 600; color: var(--text2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .step-node.active .step-num {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .step-node.done .step-num {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: #fff;
+  }
+  .step-label {
+    font-size: 13px; font-weight: 600;
+    color: var(--text2);
+    transition: color 0.2s;
+  }
+  .step-node.active .step-label { color: var(--text); }
+  .step-node.done .step-label { color: var(--teal); }
+  .step-arrow {
+    color: var(--text3);
+    font-size: 14px;
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
 
-    textarea { min-height: 160px; resize: vertical; }
+  /* MAIN LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 24px;
+    padding: 24px 40px 40px;
+    min-height: calc(100vh - 160px);
+  }
 
-    button {
-      margin-top: 16px;
-      width: 100%;
-      border: none;
-      padding: 14px 18px;
-      border-radius: 14px;
-      font-weight: 800;
-      cursor: pointer;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: white;
-      font-size: 15px;
-    }
+  /* STAGE PANEL */
+  .stage-panel {
+    display: flex; flex-direction: column; gap: 20px;
+  }
 
-    button.secondary {
-      background: #334155;
-    }
+  .stage-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .stage-card-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stage-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .stage-card-header h2 {
+    font-size: 15px; font-weight: 700;
+    color: var(--text);
+  }
+  .stage-card-header span {
+    font-size: 12px; color: var(--text3);
+    font-family: var(--mono);
+    margin-left: auto;
+  }
+  .stage-card-body {
+    padding: 20px;
+  }
 
-    .steps {
-      display: grid;
-      gap: 14px;
-    }
+  /* QUERY INPUT */
+  .query-input-wrap {
+    position: relative;
+  }
+  .query-input-wrap textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    padding: 14px 16px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.5;
+    height: 90px;
+  }
+  .query-input-wrap textarea:focus { border-color: var(--accent); }
+  .query-input-wrap textarea::placeholder { color: var(--text3); }
 
-    .step {
-      border: 1px solid #334155;
-      background: #020617;
-      border-radius: 18px;
-      padding: 16px;
-      opacity: .45;
-      transform: scale(.98);
-      transition: .3s;
-    }
+  /* SAMPLE QUERIES */
+  .sample-queries {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;
+  }
+  .sample-btn {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    color: var(--text2);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .sample-btn:hover {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--accent);
+  }
 
-    .step.active {
-      opacity: 1;
-      border-color: #60a5fa;
-      transform: scale(1);
-      box-shadow: 0 0 0 2px rgba(96,165,250,.15);
-    }
+  /* CORPUS */
+  .corpus-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .corpus-doc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .corpus-doc:hover { border-color: var(--border2); }
+  .corpus-doc.selected {
+    border-color: var(--accent);
+    background: rgba(108,143,255,0.08);
+  }
+  .corpus-doc.retrieved {
+    border-color: var(--teal);
+    background: rgba(62,207,175,0.07);
+  }
+  .corpus-doc.top-match {
+    border-color: var(--green);
+    background: rgba(94,203,122,0.09);
+  }
+  .doc-id {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    margin-bottom: 4px;
+  }
+  .doc-preview {
+    font-size: 11px; color: var(--text2); line-height: 1.5;
+  }
+  .doc-score {
+    position: absolute; top: 10px; right: 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .doc-score.high { background: rgba(94,203,122,0.15); color: var(--green); }
+  .doc-score.mid  { background: rgba(62,207,175,0.12); color: var(--teal); }
+  .doc-score.low  { background: rgba(155,163,188,0.1); color: var(--text3); }
 
-    .step.done {
-      opacity: 1;
-      border-color: #22c55e;
-    }
+  /* EMBEDDINGS VIZ */
+  .embed-viz {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .embed-label {
+    font-size: 11px; font-family: var(--mono); color: var(--text3);
+    margin-bottom: 12px;
+  }
+  .vector-bar-group { margin-bottom: 10px; }
+  .vector-bar-label {
+    font-size: 12px; color: var(--text2); margin-bottom: 5px;
+    display: flex; justify-content: space-between;
+  }
+  .vector-bar-track {
+    height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden;
+  }
+  .vector-bar-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+  }
 
-    .step h3 {
-      margin: 0 0 8px;
-      color: #93c5fd;
-    }
+  /* CONTEXT WINDOW */
+  .context-chunk {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .context-chunk.top { border-color: var(--green); background: rgba(94,203,122,0.06); }
+  .context-rank {
+    font-family: var(--mono); font-size: 10px; color: var(--text3);
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .rank-badge {
+    background: var(--surface2); border-radius: 4px;
+    padding: 1px 6px; font-size: 10px;
+  }
+  .context-chunk.top .rank-badge {
+    background: rgba(94,203,122,0.15); color: var(--green);
+  }
+  .context-text { font-size: 13px; color: var(--text); line-height: 1.6; }
+  .context-text em {
+    background: rgba(240,166,68,0.15);
+    color: var(--amber);
+    font-style: normal;
+    border-radius: 3px;
+    padding: 0 3px;
+  }
 
-    .step p {
-      margin: 0 0 10px;
-      color: #cbd5e1;
-      line-height: 1.5;
-    }
+  /* PROMPT PREVIEW */
+  .prompt-box {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text2);
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .prompt-box .sys { color: var(--text3); }
+  .prompt-box .ctx { color: var(--teal); }
+  .prompt-box .q { color: var(--accent); }
+  .prompt-box .sep { color: var(--text3); }
 
-    .output {
-      background: #020617;
-      border: 1px dashed #475569;
-      border-radius: 14px;
-      padding: 12px;
-      color: #e2e8f0;
-      min-height: 42px;
-      white-space: pre-wrap;
-      font-size: 14px;
-    }
+  /* GENERATED ANSWER */
+  .answer-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .answer-text {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .answer-source {
+    margin-top: 14px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .source-pill {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: rgba(108,143,255,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(108,143,255,0.2);
+  }
 
-    .badge {
-      display: inline-block;
-      padding: 5px 10px;
-      background: #1e293b;
-      color: #93c5fd;
-      border-radius: 999px;
-      font-size: 12px;
-      margin-bottom: 8px;
-    }
+  /* RUN BUTTON */
+  .run-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .run-btn:hover { background: var(--accent2); transform: translateY(-1px); }
+  .run-btn:active { transform: translateY(0); }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-    .answer {
-      margin-top: 22px;
-      background: linear-gradient(135deg, #064e3b, #065f46);
-      border: 1px solid #10b981;
-      border-radius: 20px;
-      padding: 18px;
-      display: none;
-    }
+  .step-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .step-btn:hover { background: var(--surface2); color: var(--text); }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .answer h2 { margin-top: 0; }
+  .btn-row {
+    display: flex; gap: 10px; align-items: center; margin-top: 20px;
+  }
 
-    .highlight {
-      color: #86efac;
-      font-weight: 800;
-    }
+  /* SIDEBAR */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
 
-    @media(max-width: 850px) {
-      .grid { grid-template-columns: 1fr; }
-    }
-  </style>
+  .info-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .info-card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px; font-weight: 700;
+    color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .info-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .info-card-body { padding: 16px 18px; }
+  .info-card-body p {
+    font-size: 13px; color: var(--text2); line-height: 1.65;
+  }
+
+  /* PIPELINE STATUS */
+  .pipeline-status { display: flex; flex-direction: column; gap: 8px; }
+  .ps-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    transition: all 0.3s;
+  }
+  .ps-row.active { border-color: var(--accent); background: rgba(108,143,255,0.07); }
+  .ps-row.done   { border-color: rgba(62,207,175,0.3); background: rgba(62,207,175,0.05); }
+  .ps-icon { font-size: 16px; width: 22px; text-align: center; }
+  .ps-label { font-size: 12px; font-weight: 600; color: var(--text2); flex: 1; }
+  .ps-row.active .ps-label { color: var(--text); }
+  .ps-row.done .ps-label   { color: var(--teal); }
+  .ps-state {
+    font-size: 10px; font-family: var(--mono);
+    padding: 2px 7px; border-radius: 4px;
+    background: var(--surface);
+    color: var(--text3);
+  }
+  .ps-row.active .ps-state {
+    background: rgba(108,143,255,0.2); color: var(--accent);
+    animation: pulse-badge 1.5s ease-in-out infinite;
+  }
+  .ps-row.done .ps-state { background: rgba(62,207,175,0.15); color: var(--teal); }
+  @keyframes pulse-badge { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+  /* METRIC CHIPS */
+  .metrics-row { display: flex; gap: 8px; margin-top: 12px; }
+  .metric-chip {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+  .metric-val {
+    font-family: var(--mono); font-size: 18px; font-weight: 600;
+    color: var(--text);
+  }
+  .metric-lbl { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+  /* CONCEPT PILLS */
+  .concept-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .concept-pill {
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 12px;
+  }
+
+  /* LOADING ANIMATION */
+  .loading-dots span {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin: 0 2px;
+    animation: bounce-dot 1s ease-in-out infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce-dot { 0%,80%,100%{transform:scale(0.6);opacity:0.5} 40%{transform:scale(1);opacity:1} }
+
+  /* STREAM TYPING */
+  .streaming::after {
+    content: '▋';
+    animation: blink 0.8s step-end infinite;
+    color: var(--accent);
+  }
+  @keyframes blink { 50%{opacity:0} }
+
+  /* HIDDEN */
+  .hidden { display: none !important; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+  /* FADE IN */
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  .fade-in { animation: fadeIn 0.35s ease forwards; }
+
+  /* TOOLTIP */
+  [data-tip] { position: relative; cursor: help; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+    background: #2a2e40; border: 1px solid var(--border2);
+    border-radius: 6px; padding: 6px 10px;
+    font-size: 11px; color: var(--text); white-space: nowrap;
+    z-index: 10; pointer-events: none;
+    font-family: var(--sans); font-weight: 400;
+  }
+</style>
 </head>
 <body>
-  <div class="app">
-    <div class="hero">
-      <h1>RAG Simulator</h1>
-      <p>Understand how Retrieval-Augmented Generation works step by step.</p>
-    </div>
 
-    <div class="grid">
-      <div class="card">
-        <h2>Input</h2>
+<div class="header">
+  <div class="logo-mark">R</div>
+  <div class="header-text">
+    <h1>RAG Pipeline Simulator</h1>
+    <p>Retrieval-Augmented Generation — interactive step-by-step walkthrough</p>
+  </div>
+</div>
 
-        <label>Knowledge Base</label>
-        <textarea id="knowledge">BookingQube is a ticketing platform for events and movies.
-It supports organizers, customers, ticket validation, QR scanning, checkout, and event management.
-RAG means Retrieval-Augmented Generation.
-In RAG, the system first searches relevant documents, then gives them to an AI model as context.
-This helps the AI answer with better accuracy instead of guessing.</textarea>
+<!-- PIPELINE NAV -->
+<nav class="pipeline-nav" id="pipelineNav">
+  <div class="step-node active" data-step="0" onclick="goToStep(0)">
+    <div class="step-num">1</div>
+    <span class="step-label">Query Input</span>
+  </div>
+  <span class="step-arrow">›</span>
+  <div class="step-node" data-step="1" onclick="goToStep(1)">
+    <div class="step-num">2</div>
+    <span class="step-label">Embedding</span>
+  </div>
+  <span class="step-arrow">›</span>
+  <div class="step-node" data-step="2" onclick="goToStep(2)">
+    <div class="step-num">3</div>
+    <span class="step-label">Vector Search</span>
+  </div>
+  <span class="step-arrow">›</span>
+  <div class="step-node" data-step="3" onclick="goToStep(3)">
+    <div class="step-num">4</div>
+    <span class="step-label">Context Assembly</span>
+  </div>
+  <span class="step-arrow">›</span>
+  <div class="step-node" data-step="4" onclick="goToStep(4)">
+    <div class="step-num">5</div>
+    <span class="step-label">Prompt Construction</span>
+  </div>
+  <span class="step-arrow">›</span>
+  <div class="step-node" data-step="5" onclick="goToStep(5)">
+    <div class="step-num">6</div>
+    <span class="step-label">LLM Generation</span>
+  </div>
+</nav>
 
-        <label>User Question</label>
-        <input id="question" value="What is RAG and how does it help BookingQube?" />
-
-        <button onclick="runRAG()">Run RAG Simulation</button>
-        <button class="secondary" onclick="resetSim()">Reset</button>
-      </div>
-
-      <div class="card">
-        <h2>RAG Pipeline</h2>
-
-        <div class="steps">
-          <div class="step" id="step1">
-            <span class="badge">Step 1</span>
-            <h3>Document Ingestion</h3>
-            <p>The system receives knowledge documents.</p>
-            <div class="output" id="out1"></div>
-          </div>
-
-          <div class="step" id="step2">
-            <span class="badge">Step 2</span>
-            <h3>Chunking</h3>
-            <p>Large text is split into smaller chunks.</p>
-            <div class="output" id="out2"></div>
-          </div>
-
-          <div class="step" id="step3">
-            <span class="badge">Step 3</span>
-            <h3>Embedding</h3>
-            <p>Each chunk is converted into a searchable meaning vector.</p>
-            <div class="output" id="out3"></div>
-          </div>
-
-          <div class="step" id="step4">
-            <span class="badge">Step 4</span>
-            <h3>Retrieval</h3>
-            <p>The system finds the chunks most relevant to the question.</p>
-            <div class="output" id="out4"></div>
-          </div>
-
-          <div class="step" id="step5">
-            <span class="badge">Step 5</span>
-            <h3>Prompt Building</h3>
-            <p>The question and retrieved context are combined.</p>
-            <div class="output" id="out5"></div>
-          </div>
-
-          <div class="step" id="step6">
-            <span class="badge">Step 6</span>
-            <h3>Answer Generation</h3>
-            <p>The AI generates an answer using the retrieved context.</p>
-            <div class="output" id="out6"></div>
-          </div>
-        </div>
-
-        <div class="answer" id="finalAnswer">
-          <h2>Final Answer</h2>
-          <p id="answerText"></p>
-        </div>
-      </div>
-    </div>
+<!-- MAIN CONTENT -->
+<div class="main">
+  <div class="stage-panel" id="stagePanel">
+    <!-- Steps injected by JS -->
   </div>
 
-  <script>
-    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  <aside class="sidebar">
+    <!-- PIPELINE STATUS -->
+    <div class="info-card">
+      <div class="info-card-header">
+        <div class="info-dot" style="background:var(--accent)"></div>
+        Pipeline Status
+      </div>
+      <div class="info-card-body" style="padding:12px">
+        <div class="pipeline-status" id="pipelineStatus">
+          <div class="ps-row" id="ps0"><span class="ps-icon">✏️</span><span class="ps-label">Query Input</span><span class="ps-state">waiting</span></div>
+          <div class="ps-row" id="ps1"><span class="ps-icon">🧮</span><span class="ps-label">Embedding</span><span class="ps-state">waiting</span></div>
+          <div class="ps-row" id="ps2"><span class="ps-icon">🔍</span><span class="ps-label">Vector Search</span><span class="ps-state">waiting</span></div>
+          <div class="ps-row" id="ps3"><span class="ps-icon">📄</span><span class="ps-label">Context Assembly</span><span class="ps-state">waiting</span></div>
+          <div class="ps-row" id="ps4"><span class="ps-icon">🧩</span><span class="ps-label">Prompt Build</span><span class="ps-state">waiting</span></div>
+          <div class="ps-row" id="ps5"><span class="ps-icon">✨</span><span class="ps-label">LLM Generation</span><span class="ps-state">waiting</span></div>
+        </div>
+        <div class="metrics-row" id="metricsRow" style="margin-top:12px">
+          <div class="metric-chip"><div class="metric-val" id="metDocs">5</div><div class="metric-lbl">Corpus docs</div></div>
+          <div class="metric-chip"><div class="metric-val" id="metRetrieved">—</div><div class="metric-lbl">Retrieved</div></div>
+          <div class="metric-chip"><div class="metric-val" id="metTokens">—</div><div class="metric-lbl">Ctx tokens</div></div>
+        </div>
+      </div>
+    </div>
 
-    function resetSim() {
-      for (let i = 1; i <= 6; i++) {
-        document.getElementById("step" + i).className = "step";
-        document.getElementById("out" + i).textContent = "";
-      }
-      document.getElementById("finalAnswer").style.display = "none";
-      document.getElementById("answerText").textContent = "";
+    <!-- CONCEPT EXPLAINER -->
+    <div class="info-card" id="conceptCard">
+      <div class="info-card-header">
+        <div class="info-dot" id="conceptDot" style="background:var(--purple)"></div>
+        <span id="conceptTitle">What is RAG?</span>
+      </div>
+      <div class="info-card-body">
+        <p id="conceptText">RAG (Retrieval-Augmented Generation) combines a retrieval system with a language model. Instead of relying on training data alone, the LLM fetches relevant documents at query time — grounding its answer in real, up-to-date information.</p>
+        <div class="concept-row" style="margin-top:12px" id="conceptTags">
+          <span class="concept-pill" style="background:rgba(167,139,250,0.12);color:var(--purple)">No hallucinations</span>
+          <span class="concept-pill" style="background:rgba(62,207,175,0.10);color:var(--teal)">Citable sources</span>
+          <span class="concept-pill" style="background:rgba(108,143,255,0.12);color:var(--accent)">Live knowledge</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEGEND -->
+    <div class="info-card">
+      <div class="info-card-header">
+        <div class="info-dot" style="background:var(--amber)"></div>
+        Legend
+      </div>
+      <div class="info-card-body" style="padding:12px 18px">
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></span><span style="color:var(--text2)">Top match doc</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--teal);flex-shrink:0"></span><span style="color:var(--text2)">Retrieved chunk</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0"></span><span style="color:var(--text2)">Active / selected</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--amber);flex-shrink:0"></span><span style="color:var(--text2)">Key term match</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const CORPUS = [
+  { id: "DOC-001", title: "How LLMs Generate Text", preview: "Large language models predict the next token using probability distributions over a vocabulary, conditioned on all prior context.", content: "Large language models (LLMs) generate text by predicting the next token at each step, sampling from a probability distribution over the vocabulary. The model conditions its predictions on all previous tokens in the context window. Techniques like temperature scaling and top-p sampling control the randomness of outputs." },
+  { id: "DOC-002", title: "What is a Vector Embedding?", preview: "An embedding maps text to a high-dimensional vector so that semantically similar texts have nearby vectors in the embedding space.", content: "A vector embedding is a dense numerical representation of text in a high-dimensional space. Semantically similar pieces of text are mapped to nearby vectors. Embeddings are created by passing text through a neural encoder model. The distance between vectors (e.g., cosine similarity) reflects semantic relatedness." },
+  { id: "DOC-003", title: "Cosine Similarity Explained", preview: "Cosine similarity measures the angle between two vectors, returning 1 for identical direction and 0 for orthogonal (unrelated) vectors.", content: "Cosine similarity measures the angle between two vectors in a high-dimensional space. It returns a score from -1 to 1, where 1 means the vectors point in the same direction. For normalized embeddings, cosine similarity is efficient to compute. It is the standard metric for nearest-neighbor retrieval in vector databases." },
+  { id: "DOC-004", title: "The RAG Pipeline Architecture", preview: "RAG retrieves relevant document chunks from a vector store and injects them into the LLM prompt, grounding responses in real data.", content: "Retrieval-Augmented Generation (RAG) works by first converting a user query into a vector embedding, then searching a vector database for the most similar document chunks. These retrieved chunks are inserted into the LLM prompt as context. The LLM then generates an answer grounded in the retrieved information rather than relying solely on its parametric memory." },
+  { id: "DOC-005", title: "Prompt Engineering Basics", preview: "A well-structured prompt provides a system instruction, retrieved context, and a clear user question to guide the LLM response.", content: "Prompt engineering is the practice of structuring inputs to language models to elicit desired outputs. A typical RAG prompt includes a system instruction, one or more retrieved context passages, and the user's question. Clear delimiters between sections help the model distinguish context from instructions. Chain-of-thought prompting can improve multi-step reasoning." }
+];
+
+const SAMPLE_QUERIES = [
+  "How does a vector embedding work?",
+  "What is cosine similarity in RAG?",
+  "How is context injected into an LLM?",
+  "What makes RAG different from fine-tuning?"
+];
+
+// Simulated similarity scores based on query keywords
+function computeScores(query) {
+  const q = query.toLowerCase();
+  const scores = CORPUS.map((doc, i) => {
+    let score = Math.random() * 0.15 + 0.3; // base noise
+    const content = (doc.title + ' ' + doc.content).toLowerCase();
+    // Keyword overlap boost
+    const qWords = q.split(/\s+/).filter(w => w.length > 3);
+    qWords.forEach(w => { if (content.includes(w)) score += 0.12; });
+    // topic match boosts
+    if (q.includes('embed') && i === 1) score += 0.35;
+    if (q.includes('cosine') && i === 2) score += 0.38;
+    if (q.includes('rag') && i === 3) score += 0.3;
+    if (q.includes('context') && i === 3) score += 0.25;
+    if (q.includes('prompt') && i === 4) score += 0.3;
+    if (q.includes('llm') && i === 0) score += 0.2;
+    if (q.includes('vector') && i === 1) score += 0.28;
+    if (q.includes('vector') && i === 2) score += 0.2;
+    if (q.includes('retriev') && i === 3) score += 0.3;
+    score = Math.min(0.99, score);
+    return { idx: i, score };
+  });
+  return scores.sort((a, b) => b.score - a.score);
+}
+
+function genEmbedding(query) {
+  const seed = query.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const rng = (n) => ((seed * (n+1) * 9301 + 49297) % 233280) / 233280;
+  return Array.from({length: 8}, (_, i) => ((rng(i) - 0.5) * 2).toFixed(3));
+}
+
+// STEP DEFINITIONS
+const CONCEPTS = [
+  { title: "Query Input", color: "var(--accent)", tags: [["User intent", "var(--accent)"], ["Natural language", "var(--teal)"]], text: "The user's question is the entry point. RAG works with plain natural language — no special syntax needed. The query will be converted into a vector to enable semantic search." },
+  { title: "Vector Embedding", color: "var(--purple)", tags: [["Neural encoder", "var(--purple)"], ["768 dimensions", "var(--accent)"]], text: "The query is passed through an embedding model (e.g. text-embedding-ada-002) producing a dense vector. Every number encodes semantic meaning. Similar questions produce nearby vectors." },
+  { title: "Similarity Search", color: "var(--teal)", tags: [["Cosine similarity", "var(--teal)"], ["ANN index", "var(--green)"]], text: "The query vector is compared to every document vector in the store using cosine similarity. The top-k closest documents are retrieved — this is approximate nearest neighbour (ANN) search." },
+  { title: "Context Assembly", color: "var(--amber)", tags: [["Re-ranking", "var(--amber)"], ["Chunking", "var(--coral)"]], text: "Retrieved chunks are ranked by relevance score and assembled into a context window. Overlapping or duplicate content is deduped. Token limits constrain how much context fits." },
+  { title: "Prompt Construction", color: "var(--coral)", tags: [["System prompt", "var(--coral)"], ["Few-shot optional", "var(--text2)"]], text: "A structured prompt is built with three sections: system instructions (tell the LLM to use only the context), retrieved context passages, and the original user query." },
+  { title: "LLM Generation", color: "var(--green)", tags: [["Grounded output", "var(--green)"], ["Source cited", "var(--accent)"]], text: "The language model generates an answer conditioned on both its parametric knowledge and the retrieved context. The answer is grounded — verifiable against the source documents." }
+];
+
+let currentStep = 0;
+let query = '';
+let scores = [];
+let topDocs = [];
+let embedding = [];
+
+function updateConceptCard(step) {
+  const c = CONCEPTS[step];
+  document.getElementById('conceptDot').style.background = c.color;
+  document.getElementById('conceptTitle').textContent = c.title;
+  document.getElementById('conceptText').textContent = c.text;
+  const tagsEl = document.getElementById('conceptTags');
+  tagsEl.innerHTML = c.tags.map(([label, color]) =>
+    `<span class="concept-pill" style="background:rgba(from ${color} r g b / 0.12);color:${color};border:1px solid rgba(from ${color} r g b / 0.2)">${label}</span>`
+  ).join('');
+  tagsEl.innerHTML = c.tags.map(([label, color]) =>
+    `<span class="concept-pill" style="background:rgba(255,255,255,0.05);color:${color};border:1px solid rgba(255,255,255,0.1)">${label}</span>`
+  ).join('');
+}
+
+function updatePipelineNav(step) {
+  document.querySelectorAll('.step-node').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === step) el.classList.add('active');
+    else if (i < step) el.classList.add('done');
+  });
+}
+
+function updatePipelineStatus(step) {
+  const states = ['waiting', 'waiting', 'waiting', 'waiting', 'waiting', 'waiting'];
+  const labels = ['waiting', 'waiting', 'waiting', 'waiting', 'waiting', 'waiting'];
+  for (let i = 0; i < 6; i++) {
+    const row = document.getElementById('ps' + i);
+    row.classList.remove('active', 'done');
+    const stateEl = row.querySelector('.ps-state');
+    if (i < step) { row.classList.add('done'); stateEl.textContent = 'done'; }
+    else if (i === step) { row.classList.add('active'); stateEl.textContent = 'running'; }
+    else { stateEl.textContent = 'waiting'; }
+  }
+}
+
+function renderStep(step) {
+  currentStep = step;
+  updatePipelineNav(step);
+  updatePipelineStatus(step);
+  updateConceptCard(step);
+
+  const panel = document.getElementById('stagePanel');
+  panel.innerHTML = '';
+
+  if (step === 0) renderStep0(panel);
+  else if (step === 1) renderStep1(panel);
+  else if (step === 2) renderStep2(panel);
+  else if (step === 3) renderStep3(panel);
+  else if (step === 4) renderStep4(panel);
+  else if (step === 5) renderStep5(panel);
+}
+
+function goToStep(n) {
+  if (n > 0 && !query) { alert('Enter a query first!'); return; }
+  if (n > 1 && embedding.length === 0) return;
+  renderStep(n);
+}
+
+// STEP 0 — QUERY INPUT
+function renderStep0(panel) {
+  panel.innerHTML = `
+    <div class="stage-card fade-in">
+      <div class="stage-card-header">
+        <div class="stage-icon" style="background:rgba(108,143,255,0.12)">✏️</div>
+        <h2>Step 1 — Query Input</h2>
+        <span>USER → PIPELINE</span>
+      </div>
+      <div class="stage-card-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Enter the question you want answered. The RAG pipeline will retrieve relevant documents to ground the response.</p>
+        <div class="query-input-wrap">
+          <textarea id="queryInput" placeholder="e.g. How does a vector embedding work?">${query}</textarea>
+        </div>
+        <div class="sample-queries">
+          ${SAMPLE_QUERIES.map(q => `<button class="sample-btn" onclick="setSample('${q}')">${q}</button>`).join('')}
+        </div>
+        <div class="btn-row">
+          <button class="run-btn" onclick="submitQuery()">
+            Embed Query <span style="font-size:18px;line-height:1">→</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setSample(q) {
+  document.getElementById('queryInput').value = q;
+}
+
+function submitQuery() {
+  const q = document.getElementById('queryInput').value.trim();
+  if (!q) { alert('Please enter a query.'); return; }
+  query = q;
+  scores = computeScores(query);
+  topDocs = scores.slice(0, 3);
+  embedding = genEmbedding(query);
+  document.getElementById('metRetrieved').textContent = '3';
+  document.getElementById('metTokens').textContent = '~480';
+  renderStep(1);
+}
+
+// STEP 1 — EMBEDDING
+function renderStep1(panel) {
+  const dims = embedding;
+  panel.innerHTML = `
+    <div class="stage-card fade-in">
+      <div class="stage-card-header">
+        <div class="stage-icon" style="background:rgba(167,139,250,0.12)">🧮</div>
+        <h2>Step 2 — Vector Embedding</h2>
+        <span>text → [f32 × 768]</span>
+      </div>
+      <div class="stage-card-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Your query is passed through a neural encoder. The output is a dense vector where each dimension encodes a semantic feature.</p>
+
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:16px">
+          <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:8px">INPUT QUERY</div>
+          <div style="font-size:15px;color:var(--accent);font-style:italic">"${query}"</div>
+        </div>
+
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:10px">EMBEDDING VECTOR (showing 8 of 768 dims)</div>
+        <div class="embed-viz">
+          ${dims.map((v, i) => {
+            const pct = Math.round((parseFloat(v) + 1) / 2 * 100);
+            const color = pct > 60 ? 'var(--accent)' : pct > 40 ? 'var(--teal)' : 'var(--text3)';
+            return `
+            <div class="vector-bar-group">
+              <div class="vector-bar-label">
+                <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">dim[${i}]</span>
+                <span style="font-family:var(--mono);font-size:11px;color:${color}">${v}</span>
+              </div>
+              <div class="vector-bar-track">
+                <div class="vector-bar-fill" style="width:${pct}%;background:${color}"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+
+        <div style="margin-top:14px;font-size:12px;color:var(--text2);display:flex;gap:20px">
+          <span data-tip="Number of dimensions in the full vector">📐 768 dimensions</span>
+          <span data-tip="Data type used to store each value">🔢 float32</span>
+          <span data-tip="Similarity metric used in retrieval">📏 Cosine metric</span>
+        </div>
+
+        <div class="btn-row">
+          <button class="step-btn" onclick="renderStep(0)">← Back</button>
+          <button class="run-btn" onclick="renderStep(2)">Search Corpus →</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// STEP 2 — VECTOR SEARCH
+function renderStep2(panel) {
+  panel.innerHTML = `
+    <div class="stage-card fade-in">
+      <div class="stage-card-header">
+        <div class="stage-icon" style="background:rgba(62,207,175,0.12)">🔍</div>
+        <h2>Step 3 — Vector Similarity Search</h2>
+        <span>ANN search · top-k=3</span>
+      </div>
+      <div class="stage-card-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px">The query vector is compared against every document vector in the corpus using cosine similarity. Click any document to preview its content.</p>
+
+        <div class="corpus-grid">
+          ${scores.map(({ idx, score }, rank) => {
+            const doc = CORPUS[idx];
+            const isTop = rank === 0;
+            const isRetrieved = rank < 3;
+            const cls = isTop ? 'top-match' : isRetrieved ? 'retrieved' : '';
+            const scoreLabel = score > 0.8 ? 'high' : score > 0.65 ? 'mid' : 'low';
+            return `
+            <div class="corpus-doc ${cls}" onclick="previewDoc(${idx})">
+              <div class="doc-id">${doc.id} ${isTop ? '🏆' : isRetrieved ? '✅' : ''}</div>
+              <div class="doc-title">${doc.title}</div>
+              <div class="doc-preview">${doc.preview.substring(0, 70)}…</div>
+              <div class="doc-score ${scoreLabel}">${score.toFixed(3)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+
+        <div id="docPreview" style="margin-top:14px;display:none" class="context-chunk">
+          <div class="context-rank"><span class="rank-badge">PREVIEW</span></div>
+          <div class="context-text" id="docPreviewText"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="step-btn" onclick="renderStep(1)">← Back</button>
+          <button class="run-btn" onclick="renderStep(3)">Assemble Context →</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function previewDoc(idx) {
+  const doc = CORPUS[idx];
+  document.getElementById('docPreview').style.display = 'block';
+  document.getElementById('docPreviewText').textContent = doc.content;
+}
+
+// STEP 3 — CONTEXT ASSEMBLY
+function renderStep3(panel) {
+  const qWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+
+  function highlight(text) {
+    let result = text;
+    qWords.forEach(w => {
+      const re = new RegExp(`(${w})`, 'gi');
+      result = result.replace(re, '<em>$1</em>');
+    });
+    return result;
+  }
+
+  panel.innerHTML = `
+    <div class="stage-card fade-in">
+      <div class="stage-card-header">
+        <div class="stage-icon" style="background:rgba(240,166,68,0.12)">📄</div>
+        <h2>Step 4 — Context Assembly</h2>
+        <span>3 chunks · ~480 tokens</span>
+      </div>
+      <div class="stage-card-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Top-3 retrieved chunks are ranked and assembled into the context window. <em style="color:var(--amber);font-style:normal">Highlighted terms</em> match your query keywords.</p>
+
+        ${topDocs.map(({ idx, score }, rank) => {
+          const doc = CORPUS[idx];
+          return `
+          <div class="context-chunk ${rank === 0 ? 'top' : ''}">
+            <div class="context-rank">
+              <span class="rank-badge">#${rank + 1}</span>
+              <span style="font-family:var(--mono);font-size:10px">${doc.id}</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--teal)">sim=${score.toFixed(3)}</span>
+            </div>
+            <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">${doc.title}</div>
+            <div class="context-text">${highlight(doc.content)}</div>
+          </div>`;
+        }).join('')}
+
+        <div class="btn-row">
+          <button class="step-btn" onclick="renderStep(2)">← Back</button>
+          <button class="run-btn" onclick="renderStep(4)">Build Prompt →</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// STEP 4 — PROMPT CONSTRUCTION
+function renderStep4(panel) {
+  const ctx = topDocs.map(({ idx }, i) =>
+    `[Context ${i + 1}]: ${CORPUS[idx].content}`
+  ).join('\n\n');
+
+  panel.innerHTML = `
+    <div class="stage-card fade-in">
+      <div class="stage-card-header">
+        <div class="stage-icon" style="background:rgba(240,107,107,0.12)">🧩</div>
+        <h2>Step 5 — Prompt Construction</h2>
+        <span>system + context + query</span>
+      </div>
+      <div class="stage-card-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px">The full prompt is assembled with three structured sections. The LLM is instructed to answer only from the provided context.</p>
+
+        <div class="prompt-box">
+<span class="sys">### SYSTEM</span>
+<span class="sys">You are a helpful assistant. Answer the user's question using ONLY the context provided. If the answer is not in the context, say "I don't have enough information."</span>
+
+<span class="sep">─────────────────────────────</span>
+<span class="ctx">### RETRIEVED CONTEXT</span>
+
+${topDocs.map(({ idx }, i) =>
+  `<span class="ctx">[Chunk ${i + 1} · ${CORPUS[idx].id}]</span>
+<span style="color:var(--text2)">${CORPUS[idx].content}</span>`
+).join('\n\n')}
+
+<span class="sep">─────────────────────────────</span>
+<span class="q">### USER QUERY</span>
+<span class="q">${query}</span>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:16px;font-size:12px;color:var(--text2)">
+          <span>🟣 <b style="color:var(--coral)">System</b> instruction</span>
+          <span>🟢 <b style="color:var(--teal)">Context</b> chunks</span>
+          <span>🔵 <b style="color:var(--accent)">User</b> query</span>
+        </div>
+
+        <div class="btn-row">
+          <button class="step-btn" onclick="renderStep(3)">← Back</button>
+          <button class="run-btn" onclick="renderStep(5)">Generate Answer ✨</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// STEP 5 — LLM GENERATION
+function renderStep5(panel) {
+  panel.innerHTML = `
+    <div class="stage-card fade-in">
+      <div class="stage-card-header">
+        <div class="stage-icon" style="background:rgba(94,203,122,0.12)">✨</div>
+        <h2>Step 6 — LLM Generation</h2>
+        <span>RAG Output</span>
+      </div>
+      <div class="stage-card-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px">The language model generates a grounded answer using the retrieved context. Sources are cited so the answer is verifiable.</p>
+
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:16px">
+          <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:6px">YOUR QUERY</div>
+          <div style="font-size:14px;color:var(--accent)">"${query}"</div>
+        </div>
+
+        <div class="answer-box">
+          <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:10px">GROUNDED ANSWER</div>
+          <div class="answer-text streaming" id="answerOutput"></div>
+          <div class="answer-source" id="answerSources" style="display:none"></div>
+        </div>
+
+        <div id="finishBlock" style="display:none">
+          <div class="btn-row">
+            <button class="step-btn" onclick="renderStep(4)">← Back</button>
+            <button class="run-btn" onclick="resetAll()">🔄 New Query</button>
+          </div>
+          <div style="margin-top:20px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;letter-spacing:0.05em">RAG PIPELINE SUMMARY</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;color:var(--text2)">
+              <div>✅ Query embedded</div>
+              <div>✅ ${CORPUS.length} docs searched</div>
+              <div>✅ Top-3 retrieved</div>
+              <div>✅ ~480 tokens in context</div>
+              <div>✅ Prompt structured</div>
+              <div>✅ Grounded answer generated</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  streamAnswer();
+}
+
+function buildAnswer(query) {
+  const q = query.toLowerCase();
+  const topIdx = topDocs[0].idx;
+  const doc1 = CORPUS[topDocs[0].idx];
+  const doc2 = CORPUS[topDocs[1].idx];
+
+  if (q.includes('embed')) {
+    return { text: "A vector embedding is a dense numerical representation of text in a high-dimensional space (typically 768 or 1536 dimensions). An encoder neural network maps the input text to this vector such that semantically similar texts end up close together in the embedding space. The distance between vectors — measured using cosine similarity — reflects how related two pieces of text are. This is what makes semantic search possible: rather than matching exact keywords, the system finds documents whose meaning is closest to the query.", sources: [doc1.id, doc2.id] };
+  }
+  if (q.includes('cosine')) {
+    return { text: "Cosine similarity measures the angle between two vectors in a high-dimensional space, returning a score from -1 (opposite directions) to 1 (identical direction). For normalized embedding vectors, a cosine score of 1 means the two texts are semantically identical, while 0 means they are unrelated. In RAG pipelines, cosine similarity is the standard metric for nearest-neighbour retrieval because it is efficient to compute and correlates well with semantic relatedness.", sources: [doc1.id, doc2.id] };
+  }
+  if (q.includes('context') || q.includes('inject')) {
+    return { text: "In a RAG pipeline, retrieved document chunks are injected into the LLM prompt as structured context. The prompt typically has three sections: a system instruction (telling the model to use only the provided context), the retrieved passages (labelled with their source IDs), and the user query. This structure ensures the model generates a grounded answer that can be traced back to specific documents rather than relying on parametric memory that might be outdated or hallucinated.", sources: [doc1.id, doc2.id] };
+  }
+  if (q.includes('fine-tun') || q.includes('different')) {
+    return { text: "RAG differs from fine-tuning in that it does not modify the model's weights. Instead, it retrieves relevant documents at inference time and injects them into the prompt. Fine-tuning bakes knowledge into the model permanently, which means it can become outdated and is expensive to update. RAG keeps the knowledge base external and easily updated — swapping documents in the vector store is all that's needed. RAG also provides source citations, making answers verifiable, whereas fine-tuned models provide no attribution.", sources: [doc1.id, doc2.id] };
+  }
+  // Default
+  return { text: `Based on the retrieved context: ${doc1.title.toLowerCase()} forms a key part of the answer to your query. ${doc1.content.split('. ').slice(0,3).join('. ')}. Additionally, from the second retrieved document: ${doc2.content.split('. ').slice(0,2).join('. ')}.`, sources: [doc1.id, doc2.id] };
+}
+
+function streamAnswer() {
+  const { text, sources } = buildAnswer(query);
+  const el = document.getElementById('answerOutput');
+  let i = 0;
+  const speed = 18;
+  function tick() {
+    if (i < text.length) {
+      el.textContent = text.substring(0, i + 1);
+      i += Math.ceil(Math.random() * 3);
+      setTimeout(tick, speed);
+    } else {
+      el.textContent = text;
+      el.classList.remove('streaming');
+      const srcEl = document.getElementById('answerSources');
+      srcEl.style.display = 'flex';
+      srcEl.innerHTML = '<span style="font-size:11px;color:var(--text3);margin-right:4px">Sources:</span>' +
+        sources.map(s => `<span class="source-pill">${s}</span>`).join('');
+      document.getElementById('finishBlock').style.display = 'block';
     }
+  }
+  tick();
+}
 
-    function activate(step) {
-      document.getElementById("step" + step).classList.add("active");
-    }
+function resetAll() {
+  query = ''; scores = []; topDocs = []; embedding = [];
+  document.getElementById('metRetrieved').textContent = '—';
+  document.getElementById('metTokens').textContent = '—';
+  renderStep(0);
+}
 
-    function done(step) {
-      document.getElementById("step" + step).classList.remove("active");
-      document.getElementById("step" + step).classList.add("done");
-    }
-
-    function chunkText(text) {
-      return text
-        .split(/\n|\. /)
-        .map(x => x.trim())
-        .filter(x => x.length > 10);
-    }
-
-    function fakeEmbedding(text) {
-      let score = 0;
-      for (let char of text) score += char.charCodeAt(0);
-      return [
-        (score % 97) / 100,
-        (score % 53) / 100,
-        (score % 31) / 100
-      ];
-    }
-
-    function similarity(question, chunk) {
-      const qWords = question.toLowerCase().split(/\W+/);
-      const cWords = chunk.toLowerCase().split(/\W+/);
-      let matches = 0;
-
-      qWords.forEach(word => {
-        if (word.length > 2 && cWords.includes(word)) matches++;
-      });
-
-      return matches;
-    }
-
-    async function runRAG() {
-      resetSim();
-
-      const knowledge = document.getElementById("knowledge").value.trim();
-      const question = document.getElementById("question").value.trim();
-
-      activate(1);
-      document.getElementById("out1").textContent = knowledge;
-      await sleep(700);
-      done(1);
-
-      activate(2);
-      const chunks = chunkText(knowledge);
-      document.getElementById("out2").textContent =
-        chunks.map((c, i) => `Chunk ${i + 1}: ${c}`).join("\n\n");
-      await sleep(700);
-      done(2);
-
-      activate(3);
-      const embeddings = chunks.map(c => fakeEmbedding(c));
-      document.getElementById("out3").textContent =
-        embeddings.map((e, i) => `Chunk ${i + 1} vector: [${e.join(", ")}]`).join("\n");
-      await sleep(700);
-      done(3);
-
-      activate(4);
-      const ranked = chunks
-        .map(chunk => ({ chunk, score: similarity(question, chunk) }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
-
-      document.getElementById("out4").textContent =
-        ranked.map((r, i) => `Top ${i + 1}: ${r.chunk}\nRelevance score: ${r.score}`).join("\n\n");
-      await sleep(700);
-      done(4);
-
-      activate(5);
-      const context = ranked.map(r => r.chunk).join("\n");
-      const prompt = `Use this context:\n${context}\n\nAnswer this question:\n${question}`;
-      document.getElementById("out5").textContent = prompt;
-      await sleep(700);
-      done(5);
-
-      activate(6);
-      const answer =
-        `RAG means Retrieval-Augmented Generation. In simple terms, the AI does not answer only from memory. ` +
-        `It first searches the knowledge base, retrieves the most relevant information, and then generates an answer using that context.\n\n` +
-        `For BookingQube, RAG can help by answering questions about event setup, ticket validation, QR scanning, checkout flow, organizer management, and support issues using your own documents instead of guessing.`;
-
-      document.getElementById("out6").textContent = "Answer generated using retrieved context.";
-      await sleep(700);
-      done(6);
-
-      document.getElementById("answerText").innerHTML =
-        answer.replace("RAG", "<span class='highlight'>RAG</span>");
-      document.getElementById("finalAnswer").style.display = "block";
-    }
-  </script>
+// INIT
+renderStep(0);
+</script>
 </body>
 </html>
